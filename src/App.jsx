@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import NavBar from "./components/NavBar";
+import DesktopNav from "./components/DesktopNav";
 import BottomNav from "./components/BottomNav";
 import EventHeader from "./components/EventHeader";
 import WarningFlags from "./components/WarningFlags";
@@ -27,6 +28,7 @@ function AppShell() {
   return (
     <div style={{ minHeight: "100vh", background: colors.cream }}>
       <NavBar />
+      <DesktopNav />
       <EventHeader />
       <WarningFlags />
       <Routes>

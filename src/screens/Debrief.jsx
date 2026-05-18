@@ -20,35 +20,23 @@ const inputStyle = {
 const btnPrimary = { ...type.button, background: colors.orange, color: "#fff", border: "none", borderRadius: radius.md, padding: `${spacing.sm}px ${spacing.lg}px`, cursor: "pointer", fontSize: 14 };
 const btnSecondary = { ...type.button, background: "none", color: colors.charcoal, border: `1px solid ${colors.gray}`, borderRadius: radius.md, padding: `${spacing.sm}px ${spacing.md}px`, cursor: "pointer", fontSize: 13 };
 
+function getToken() {
+  const user = window.netlifyIdentity?.currentUser();
+  return user?.token?.access_token || "";
+}
+
 async function generateDebriefSummary(debrief, event) {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("/.netlify/functions/generateDebrief", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
+      Authorization: `Bearer ${getToken()}`,
     },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 1000,
-      system: `You are an event debrief assistant for The Stewards, a mortgage advisory team in Columbus, Ohio run by Ryan Miracle and Chris Beal. Write a concise, professional 150-word debrief summary paragraph based on the event data provided. Tone: direct, warm, forward-looking. No bullet points. Past tense.`,
-      messages: [
-        {
-          role: "user",
-          content: `Event: ${event.name} on ${event.date} at ${event.venue}.
-Capacity: ${event.capacity}. RSVPs confirmed: ${debrief.rsvpCount}. Attended: ${debrief.attendedCount}.
-Revenue: ${debrief.revenueActual}. Expenses: ${debrief.expenseActual}. Net: ${(debrief.revenueActual || 0) - (debrief.expenseActual || 0)}.
-NPS Score: ${debrief.npsScore}/10.
-Wins: ${(debrief.wins || []).filter(Boolean).join("; ")}.
-Misses: ${(debrief.misses || []).filter(Boolean).join("; ")}.
-Do differently next time: ${(debrief.nextTime || []).filter(Boolean).join("; ")}.
-Write the debrief summary paragraph.`,
-        },
-      ],
-    }),
+    body: JSON.stringify({ debrief, event }),
   });
+  if (!response.ok) throw new Error("AI call failed");
   const data = await response.json();
-  return data.content[0].text;
+  return data.summary;
 }
 
 function ReadOnlyStat({ label, value }) {

@@ -1,13 +1,6 @@
 import { getStore } from "@netlify/blobs";
-import { validateAuth } from "./utils/validateAuth.js";
 
 export default async function handler(req, context) {
-  try {
-    validateAuth(context);
-  } catch {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
-
   const url = new URL(req.url);
   const id = url.searchParams.get("id");
   if (!id) {

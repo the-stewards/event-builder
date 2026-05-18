@@ -1,27 +1,13 @@
-function getToken() {
-  const user = window.netlifyIdentity?.currentUser();
-  return user?.token?.access_token || "";
-}
-
-function authHeaders() {
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${getToken()}`,
-  };
-}
+const headers = { "Content-Type": "application/json" };
 
 export async function fetchEvents() {
-  const res = await fetch("/.netlify/functions/getEvents", {
-    headers: authHeaders(),
-  });
+  const res = await fetch("/.netlify/functions/getEvents", { headers });
   if (!res.ok) throw new Error("Failed to fetch events");
   return res.json();
 }
 
 export async function fetchEvent(id) {
-  const res = await fetch(`/.netlify/functions/getEvent?id=${id}`, {
-    headers: authHeaders(),
-  });
+  const res = await fetch(`/.netlify/functions/getEvent?id=${id}`, { headers });
   if (!res.ok) throw new Error("Failed to fetch event");
   return res.json();
 }
@@ -29,7 +15,7 @@ export async function fetchEvent(id) {
 export async function saveEvent(event) {
   const res = await fetch("/.netlify/functions/saveEvent", {
     method: "POST",
-    headers: authHeaders(),
+    headers,
     body: JSON.stringify(event),
   });
   if (!res.ok) throw new Error("Failed to save event");
@@ -39,7 +25,7 @@ export async function saveEvent(event) {
 export async function deleteEvent(id) {
   const res = await fetch("/.netlify/functions/deleteEvent", {
     method: "POST",
-    headers: authHeaders(),
+    headers,
     body: JSON.stringify({ id }),
   });
   if (!res.ok) throw new Error("Failed to delete event");

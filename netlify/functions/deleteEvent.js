@@ -1,13 +1,6 @@
 import { getStore } from "@netlify/blobs";
-import { validateAuth } from "./utils/validateAuth.js";
 
 export default async function handler(req, context) {
-  try {
-    validateAuth(context);
-  } catch {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
-
   let body;
   try {
     body = await req.json();
@@ -22,13 +15,11 @@ export default async function handler(req, context) {
 
   try {
     const store = getStore("events");
-
     await store.delete(id);
 
     const raw = await store.get("index");
     const index = raw ? JSON.parse(raw) : [];
-    const updated = index.filter((e) => e.id !== id);
-    await store.set("index", JSON.stringify(updated));
+    await store.set("index", JSON.stringify(index.filter((e) => e.id !== id)));
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,

@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import AuthGate from "./auth/AuthGate";
 import NavBar from "./components/NavBar";
 import BottomNav from "./components/BottomNav";
 import EventHeader from "./components/EventHeader";
@@ -43,10 +42,8 @@ function AppShell() {
 
 export default function App() {
   return (
-    <AuthGate>
-      <Router>
-        <AppShell />
-      </Router>
-    </AuthGate>
+    <Router>
+      <AppShell />
+    </Router>
   );
 }

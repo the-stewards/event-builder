@@ -20,18 +20,10 @@ const inputStyle = {
 const btnPrimary = { ...type.button, background: colors.orange, color: "#fff", border: "none", borderRadius: radius.md, padding: `${spacing.sm}px ${spacing.lg}px`, cursor: "pointer", fontSize: 14 };
 const btnSecondary = { ...type.button, background: "none", color: colors.charcoal, border: `1px solid ${colors.gray}`, borderRadius: radius.md, padding: `${spacing.sm}px ${spacing.md}px`, cursor: "pointer", fontSize: 13 };
 
-function getToken() {
-  const user = window.netlifyIdentity?.currentUser();
-  return user?.token?.access_token || "";
-}
-
 async function generateDebriefSummary(debrief, event) {
   const response = await fetch("/.netlify/functions/generateDebrief", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${getToken()}`,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ debrief, event }),
   });
   if (!response.ok) throw new Error("AI call failed");

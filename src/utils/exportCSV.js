@@ -1,7 +1,9 @@
 export function exportAttendeesCSV(attendees) {
-  const headers = ["Name", "Email", "Phone", "Status", "Paid", "Plus One", "Source", "Notes", "Added At"];
+  const headers = ["Name", "Email", "Phone", "Status", "Showed", "Converted", "Paid", "Plus One", "Source", "Notes", "Added At"];
   const rows = attendees.map((a) => [
     a.name, a.email, a.phone, a.status,
+    a.showed ? "Yes" : "No",
+    a.converted ? "Yes" : "No",
     a.paid ? "Yes" : "No",
     a.plusOne ? "Yes" : "No",
     a.source, a.notes,

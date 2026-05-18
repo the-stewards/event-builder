@@ -23,7 +23,7 @@ export default async function handler(req, context) {
         {
           role: "user",
           content: `Event: ${event.name} on ${event.date} at ${event.venue}.
-Capacity: ${event.capacity}. RSVPs confirmed: ${debrief.rsvpCount}. Attended: ${debrief.attendedCount}.
+Capacity: ${event.capacity}. RSVPs confirmed: ${debrief.rsvpCount}. Showed up: ${debrief.attendedCount}. Converted to clients: ${debrief.convertedCount ?? 0}.
 Revenue: ${debrief.revenueActual}. Expenses: ${debrief.expenseActual}. Net: ${(debrief.revenueActual || 0) - (debrief.expenseActual || 0)}.
 NPS Score: ${debrief.npsScore}/10.
 Wins: ${(debrief.wins || []).filter(Boolean).join("; ")}.

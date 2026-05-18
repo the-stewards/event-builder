@@ -53,7 +53,10 @@ export default function Debrief() {
   const isClosed = activeEvent.status === "closed";
   const debrief = activeEvent.debrief || {};
 
-  const confirmed = (activeEvent.attendees || []).filter((a) => a.status === "confirmed").length;
+  const attendees = activeEvent.attendees || [];
+  const confirmed = attendees.filter((a) => a.status === "confirmed").length;
+  const showedCount = attendees.filter((a) => a.showed).length;
+  const convertedCount = attendees.filter((a) => a.converted).length;
   const revenueActual = (activeEvent.budgetItems || []).filter((b) => b.type === "income").reduce((s, b) => s + (b.actual || 0), 0);
   const expenseActual = (activeEvent.budgetItems || []).filter((b) => b.type === "expense").reduce((s, b) => s + (b.actual || 0), 0);
   const net = revenueActual - expenseActual;
@@ -69,6 +72,8 @@ export default function Debrief() {
       const d = {
         ...debrief,
         rsvpCount: confirmed,
+        attendedCount: showedCount,
+        convertedCount,
         revenueActual,
         expenseActual,
       };
@@ -81,7 +86,7 @@ export default function Debrief() {
   }
 
   function markComplete() {
-    updateDebrief({ completedAt: new Date().toISOString(), rsvpCount: confirmed, revenueActual, expenseActual });
+    updateDebrief({ completedAt: new Date().toISOString(), rsvpCount: confirmed, attendedCount: showedCount, convertedCount, revenueActual, expenseActual });
   }
 
   if (!isClosed) {
@@ -118,8 +123,10 @@ export default function Debrief() {
       <h1 style={{ ...type.h1, fontSize: "clamp(24px, 4vw, 40px)", marginBottom: spacing.xl }}>{activeEvent.name}</h1>
 
       {/* Auto-populated stats */}
-      <div style={{ display: "flex", gap: spacing.sm, flexWrap: "wrap", marginBottom: spacing.xl }}>
+      <div style={{ display: "flex", gap: spacing.sm, flexWrap: "wrap", marginBottom: spacing.lg }}>
         <ReadOnlyStat label="Confirmed RSVPs" value={confirmed} />
+        <ReadOnlyStat label="Showed Up" value={showedCount} />
+        <ReadOnlyStat label="Converted" value={convertedCount} />
         <ReadOnlyStat label="Revenue Actual" value={usd(revenueActual)} />
         <ReadOnlyStat label="Expenses Actual" value={usd(expenseActual)} />
         <div style={{ background: "#fff", border: `1px solid ${net >= 0 ? colors.success : colors.danger}`, borderRadius: radius.md, padding: `${spacing.sm}px ${spacing.md}px` }}>
@@ -128,29 +135,26 @@ export default function Debrief() {
         </div>
       </div>
 
-      {/* Manual fields */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: spacing.md, marginBottom: spacing.xl }}>
-        <div>
-          <label style={{ ...type.label, display: "block", marginBottom: spacing.xs }}>Actual Headcount</label>
-          <input
-            style={inputStyle}
-            type="number"
-            value={debrief.attendedCount ?? ""}
-            onChange={(e) => updateDebrief({ attendedCount: Number(e.target.value) || null })}
-            placeholder="How many actually showed up"
-          />
+      {/* Conversion rates */}
+      {confirmed > 0 && (
+        <div style={{ display: "flex", gap: spacing.sm, flexWrap: "wrap", marginBottom: spacing.xl }}>
+          <ReadOnlyStat label="Show Rate" value={confirmed > 0 ? `${Math.round((showedCount / confirmed) * 100)}%` : "—"} />
+          <ReadOnlyStat label="Conversion Rate" value={showedCount > 0 ? `${Math.round((convertedCount / showedCount) * 100)}%` : "—"} />
+          <ReadOnlyStat label="Overall Conversion" value={confirmed > 0 ? `${Math.round((convertedCount / confirmed) * 100)}%` : "—"} />
         </div>
-        <div>
-          <label style={{ ...type.label, display: "block", marginBottom: spacing.xs }}>NPS Score (1–10)</label>
-          <div style={{ display: "flex", alignItems: "center", gap: spacing.md }}>
-            <input
-              type="range" min={1} max={10} step={1}
-              value={debrief.npsScore ?? 5}
-              onChange={(e) => updateDebrief({ npsScore: Number(e.target.value) })}
-              style={{ flex: 1 }}
-            />
-            <span style={{ ...type.h3, fontSize: 24, minWidth: 32, textAlign: "center" }}>{debrief.npsScore ?? "—"}</span>
-          </div>
+      )}
+
+      {/* NPS */}
+      <div style={{ marginBottom: spacing.xl }}>
+        <label style={{ ...type.label, display: "block", marginBottom: spacing.xs }}>NPS Score (1–10)</label>
+        <div style={{ display: "flex", alignItems: "center", gap: spacing.md }}>
+          <input
+            type="range" min={1} max={10} step={1}
+            value={debrief.npsScore ?? 5}
+            onChange={(e) => updateDebrief({ npsScore: Number(e.target.value) })}
+            style={{ flex: 1 }}
+          />
+          <span style={{ ...type.h3, fontSize: 24, minWidth: 32, textAlign: "center" }}>{debrief.npsScore ?? "—"}</span>
         </div>
       </div>
 

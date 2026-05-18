@@ -19,47 +19,45 @@ const inputStyle = {
   outline: "none",
 };
 
-const btnPrimary = {
-  ...type.button,
-  background: colors.orange,
-  color: "#fff",
-  border: "none",
-  borderRadius: radius.md,
-  padding: `${spacing.sm}px ${spacing.lg}px`,
-  cursor: "pointer",
-  fontSize: 14,
-};
+const btnPrimary = { ...type.button, background: colors.orange, color: "#fff", border: "none", borderRadius: radius.md, padding: `${spacing.sm}px ${spacing.lg}px`, cursor: "pointer", fontSize: 14 };
+const btnSecondary = { ...type.button, background: "none", color: colors.charcoal, border: `1px solid ${colors.gray}`, borderRadius: radius.md, padding: `${spacing.sm}px ${spacing.md}px`, cursor: "pointer", fontSize: 13 };
 
-const btnSecondary = {
-  ...type.button,
-  background: "none",
-  color: colors.charcoal,
-  border: `1px solid ${colors.gray}`,
-  borderRadius: radius.md,
-  padding: `${spacing.sm}px ${spacing.md}px`,
-  cursor: "pointer",
-  fontSize: 13,
-};
-
-function PaidBadge({ paid }) {
+function ToggleBadge({ active, activeLabel, inactiveLabel, activeColor, onClick, disabled }) {
   return (
-    <span style={{
-      ...type.label, fontSize: 11,
-      border: `1px solid ${paid ? colors.success : colors.danger}`,
-      color: paid ? colors.success : colors.danger,
-      background: paid ? "rgba(74,124,89,0.1)" : "rgba(185,64,64,0.1)",
-      padding: "2px 7px",
-      borderRadius: 2,
-      display: "inline-block",
-    }}>
-      {paid ? "Paid" : "Unpaid"}
-    </span>
+    <button
+      onClick={disabled ? undefined : onClick}
+      style={{
+        ...type.label, fontSize: 11,
+        border: `1px solid ${active ? activeColor : colors.gray}`,
+        color: active ? activeColor : colors.muted,
+        background: active ? `${activeColor}18` : "transparent",
+        padding: "2px 8px", borderRadius: 2,
+        cursor: disabled ? "default" : "pointer",
+        display: "inline-block", whiteSpace: "nowrap",
+      }}
+    >
+      {active ? activeLabel : inactiveLabel}
+    </button>
   );
+}
+
+function StatCard({ label, val, sub, color }) {
+  return (
+    <div style={{ background: "#fff", border: `1px solid ${colors.gray}`, borderRadius: radius.md, padding: `${spacing.xs}px ${spacing.md}px`, minWidth: 80 }}>
+      <div style={{ ...type.label, fontSize: 11, color: colors.muted }}>{label}</div>
+      <div style={{ ...type.h3, fontSize: 22, color: color || colors.charcoal, lineHeight: 1.2 }}>{val}</div>
+      {sub && <div style={{ ...type.label, fontSize: 10, color: colors.muted }}>{sub}</div>}
+    </div>
+  );
+}
+
+function FunnelArrow() {
+  return <div style={{ ...type.label, fontSize: 18, color: colors.gray, alignSelf: "center", paddingTop: 8 }}>›</div>;
 }
 
 function EmptyState() {
   return (
-    <div style={{ textAlign: "center", padding: `${spacing.xxl}px ${spacing.lg}px`, color: colors.muted }}>
+    <div style={{ textAlign: "center", padding: `${spacing.xxl}px ${spacing.lg}px` }}>
       <p style={{ ...type.h3, color: colors.gray, marginBottom: spacing.sm }}>No attendees yet.</p>
       <p style={{ ...type.body, fontSize: 14, color: colors.muted }}>Add your first guest above, or paste from your Stripe export.</p>
     </div>
@@ -75,7 +73,8 @@ export default function RSVPs() {
   const [showCSVImport, setShowCSVImport] = useState(false);
   const [csvText, setCsvText] = useState("");
 
-  const [form, setForm] = useState({ name: "", email: "", phone: "", status: "confirmed", paid: false, plusOne: false, source: "manual", notes: "" });
+  const emptyForm = { name: "", email: "", phone: "", status: "confirmed", paid: false, plusOne: false, source: "manual", notes: "", showed: false, converted: false };
+  const [form, setForm] = useState(emptyForm);
 
   if (!activeEvent) {
     return (
@@ -89,10 +88,17 @@ export default function RSVPs() {
   const confirmed = attendees.filter((a) => a.status === "confirmed");
   const waitlist = attendees.filter((a) => a.status === "waitlist");
   const declined = attendees.filter((a) => a.status === "declined");
-  const paid = attendees.filter((a) => a.paid);
+  const showed = attendees.filter((a) => a.showed);
+  const converted = attendees.filter((a) => a.converted);
   const capacity = activeEvent.capacity || 100;
   const fillPct = Math.min((confirmed.length / capacity) * 100, 100);
   const atCapacity = confirmed.length >= capacity;
+
+  const showRate = confirmed.length > 0 ? Math.round((showed.length / confirmed.length) * 100) : null;
+  const conversionRate = showed.length > 0 ? Math.round((converted.length / showed.length) * 100) : null;
+
+  const isClosed = activeEvent.status === "closed";
+  const isLocked = isClosed;
 
   const sorted = [...attendees].sort((a, b) => {
     const order = { confirmed: 0, waitlist: 1, declined: 2 };
@@ -100,12 +106,7 @@ export default function RSVPs() {
     return new Date(a.addedAt) - new Date(b.addedAt);
   });
 
-  const isLocked = ["closed"].includes(activeEvent.status);
-
-  function resetForm() {
-    setForm({ name: "", email: "", phone: "", status: "confirmed", paid: false, plusOne: false, source: "manual", notes: "" });
-    setEditId(null);
-  }
+  function resetForm() { setForm(emptyForm); setEditId(null); }
 
   function submit() {
     if (!form.name) return;
@@ -116,18 +117,21 @@ export default function RSVPs() {
     if (editId) {
       updateEvent({ attendees: attendees.map((a) => a.id === editId ? { ...a, ...form, status } : a) });
     } else {
-      const newAttendee = { ...form, status, id: uuidv4(), addedAt: now };
-      updateEvent({ attendees: [...attendees, newAttendee] });
+      updateEvent({ attendees: [...attendees, { ...form, status, id: uuidv4(), addedAt: now }] });
     }
     resetForm();
     if (!editId) setShowForm(true);
   }
 
   function startEdit(a) {
-    setForm({ name: a.name, email: a.email || "", phone: a.phone || "", status: a.status, paid: a.paid, plusOne: a.plusOne, source: a.source || "manual", notes: a.notes || "" });
+    setForm({ name: a.name, email: a.email || "", phone: a.phone || "", status: a.status, paid: !!a.paid, plusOne: !!a.plusOne, source: a.source || "manual", notes: a.notes || "", showed: !!a.showed, converted: !!a.converted });
     setEditId(a.id);
     setShowForm(true);
     setShowFull(true);
+  }
+
+  function toggleField(id, field) {
+    updateEvent({ attendees: attendees.map((a) => a.id === id ? { ...a, [field]: !a[field] } : a) });
   }
 
   function confirmDelete() {
@@ -143,7 +147,7 @@ export default function RSVPs() {
         const name = cols[0];
         const email = cols[1] || "";
         if (!name) return null;
-        return { id: uuidv4(), name, email, phone: "", status: "confirmed", paid: false, plusOne: false, source: "stripe", notes: "", addedAt: new Date().toISOString() };
+        return { id: uuidv4(), name, email, phone: "", status: "confirmed", paid: false, plusOne: false, source: "stripe", notes: "", showed: false, converted: false, addedAt: new Date().toISOString() };
       })
       .filter(Boolean);
     updateEvent({ attendees: [...attendees, ...newAttendees] });
@@ -152,21 +156,19 @@ export default function RSVPs() {
   }
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: `${spacing.lg}px ${spacing.md}px`, paddingBottom: 100 }}>
-      {/* Summary bar */}
-      <div style={{ display: "flex", gap: spacing.sm, flexWrap: "wrap", marginBottom: spacing.md }}>
-        {[
-          { label: "Confirmed", val: confirmed.length },
-          { label: "Waitlist", val: waitlist.length },
-          { label: "Declined", val: declined.length },
-          { label: "Paid", val: paid.length },
-          { label: "Seats", val: `${confirmed.length}/${capacity}` },
-        ].map((s) => (
-          <div key={s.label} style={{ background: "#fff", border: `1px solid ${colors.gray}`, borderRadius: radius.md, padding: `${spacing.xs}px ${spacing.md}px` }}>
-            <span style={{ ...type.label, fontSize: 11, color: colors.muted }}>{s.label} </span>
-            <span style={{ ...type.h3, fontSize: 18, color: colors.charcoal }}>{s.val}</span>
-          </div>
-        ))}
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: `${spacing.lg}px ${spacing.md}px`, paddingBottom: 100 }}>
+
+      {/* Conversion funnel */}
+      <div style={{ display: "flex", gap: spacing.xs, flexWrap: "wrap", marginBottom: spacing.md, alignItems: "flex-start" }}>
+        <StatCard label="Confirmed" val={confirmed.length} sub={`${capacity - confirmed.length} seats left`} />
+        <FunnelArrow />
+        <StatCard label="Showed Up" val={showed.length} sub={showRate !== null ? `${showRate}% show rate` : "mark below"} color={showed.length > 0 ? colors.charcoal : colors.muted} />
+        <FunnelArrow />
+        <StatCard label="Converted" val={converted.length} sub={conversionRate !== null ? `${conversionRate}% of showed` : "mark below"} color={converted.length > 0 ? colors.success : colors.muted} />
+        <div style={{ flex: 1 }} />
+        <StatCard label="Waitlist" val={waitlist.length} />
+        <StatCard label="Declined" val={declined.length} />
+        <StatCard label="Seats" val={`${confirmed.length}/${capacity}`} />
       </div>
 
       {/* Capacity bar */}
@@ -201,7 +203,7 @@ export default function RSVPs() {
                   <input style={inputStyle} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Full name" />
                 </div>
                 <div>
-                  <label style={{ ...type.label, display: "block", marginBottom: spacing.xs }}>Phone *</label>
+                  <label style={{ ...type.label, display: "block", marginBottom: spacing.xs }}>Phone</label>
                   <input style={inputStyle} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="614-555-0100" />
                 </div>
               </div>
@@ -222,25 +224,23 @@ export default function RSVPs() {
                       </select>
                     </div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: spacing.md, marginBottom: spacing.sm }}>
-                    <div>
-                      <label style={{ ...type.label, display: "block", marginBottom: spacing.xs }}>Source</label>
-                      <select style={inputStyle} value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
+                  <div style={{ display: "flex", gap: spacing.lg, flexWrap: "wrap", marginBottom: spacing.sm }}>
+                    {[
+                      { field: "paid", label: "Paid" },
+                      { field: "plusOne", label: "+1" },
+                      { field: "showed", label: "Showed Up" },
+                      { field: "converted", label: "Converted" },
+                    ].map(({ field, label }) => (
+                      <label key={field} style={{ display: "flex", alignItems: "center", gap: spacing.xs, cursor: "pointer" }}>
+                        <input type="checkbox" checked={!!form[field]} onChange={(e) => setForm({ ...form, [field]: e.target.checked })} />
+                        <span style={{ ...type.label, fontSize: 12 }}>{label}</span>
+                      </label>
+                    ))}
+                    <div style={{ flex: 1 }}>
+                      <select style={{ ...inputStyle, width: "auto" }} value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
                         <option value="manual">Manual</option>
                         <option value="stripe">Stripe</option>
                       </select>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingBottom: 2 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: spacing.xs, cursor: "pointer" }}>
-                        <input type="checkbox" checked={form.paid} onChange={(e) => setForm({ ...form, paid: e.target.checked })} />
-                        <span style={{ ...type.label, fontSize: 12 }}>Paid</span>
-                      </label>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end", paddingBottom: 2 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: spacing.xs, cursor: "pointer" }}>
-                        <input type="checkbox" checked={form.plusOne} onChange={(e) => setForm({ ...form, plusOne: e.target.checked })} />
-                        <span style={{ ...type.label, fontSize: 12 }}>+1</span>
-                      </label>
                     </div>
                   </div>
                   <div style={{ marginBottom: spacing.sm }}>
@@ -255,12 +255,8 @@ export default function RSVPs() {
                   {showFull ? "Less fields" : "More fields"}
                 </button>
                 <div style={{ display: "flex", gap: spacing.sm }}>
-                  {editId && (
-                    <button onClick={() => { resetForm(); }} style={btnSecondary}>Cancel</button>
-                  )}
-                  <button onClick={submit} style={btnPrimary}>
-                    {editId ? "Save Changes" : "Add Attendee"}
-                  </button>
+                  {editId && <button onClick={resetForm} style={btnSecondary}>Cancel</button>}
+                  <button onClick={submit} style={btnPrimary}>{editId ? "Save Changes" : "Add Attendee"}</button>
                 </div>
               </div>
             </div>
@@ -287,12 +283,7 @@ export default function RSVPs() {
           <div style={{ background: colors.cream, borderRadius: radius.lg, padding: spacing.xl, width: "100%", maxWidth: 480 }}>
             <h3 style={{ ...type.h3, marginBottom: spacing.sm }}>Import from CSV</h3>
             <p style={{ ...type.body, fontSize: 13, color: colors.muted, marginBottom: spacing.md }}>Paste your CSV with Name in column 1 and Email in column 2. First row is skipped (header).</p>
-            <textarea
-              style={{ ...inputStyle, height: 160, resize: "vertical" }}
-              value={csvText}
-              onChange={(e) => setCsvText(e.target.value)}
-              placeholder={"Name,Email\nJohn Smith,john@example.com"}
-            />
+            <textarea style={{ ...inputStyle, height: 160, resize: "vertical" }} value={csvText} onChange={(e) => setCsvText(e.target.value)} placeholder={"Name,Email\nJohn Smith,john@example.com"} />
             <div style={{ display: "flex", gap: spacing.sm, justifyContent: "flex-end", marginTop: spacing.md }}>
               <button onClick={() => setShowCSVImport(false)} style={btnSecondary}>Cancel</button>
               <button onClick={importCSV} style={btnPrimary}>Import</button>
@@ -303,26 +294,33 @@ export default function RSVPs() {
 
       {/* Attendee list */}
       {sorted.length === 0 ? <EmptyState /> : (
-        <div style={{ background: "#fff", border: `1px solid ${colors.gray}`, borderRadius: radius.lg, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div style={{ background: "#fff", border: `1px solid ${colors.gray}`, borderRadius: radius.lg, overflow: "hidden", overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>
             <thead>
               <tr style={{ borderBottom: `2px solid ${colors.charcoal}` }}>
-                {["Name", "Status", "Paid", "Source", "Added", ""].map((h) => (
-                  <th key={h} style={{ ...type.label, fontSize: 11, textAlign: "left", padding: `${spacing.sm}px ${spacing.md}px`, color: colors.charcoal }}>{h}</th>
+                {["Name", "Status", "Showed", "Converted", "Paid", "Added", ""].map((h) => (
+                  <th key={h} style={{ ...type.label, fontSize: 11, textAlign: "left", padding: `${spacing.sm}px ${spacing.md}px`, color: colors.charcoal, whiteSpace: "nowrap" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {sorted.map((a) => (
                 <tr key={a.id} style={{ borderBottom: `1px solid ${colors.gray}` }}>
-                  <td style={{ padding: `${spacing.sm}px ${spacing.md}px`, ...type.body, fontSize: 14, fontWeight: 400 }}>
+                  <td style={{ padding: `${spacing.sm}px ${spacing.md}px`, ...type.body, fontSize: 14, fontWeight: 400, minWidth: 140 }}>
                     {a.name}{a.plusOne ? " +1" : ""}
-                    {a.notes && <div style={{ ...type.body, fontSize: 12, color: colors.muted }}>{a.notes}</div>}
+                    {a.notes && <div style={{ fontSize: 12, color: colors.muted }}>{a.notes}</div>}
                   </td>
                   <td style={{ padding: `${spacing.sm}px ${spacing.md}px` }}><StatusBadge status={a.status} /></td>
-                  <td style={{ padding: `${spacing.sm}px ${spacing.md}px` }}><PaidBadge paid={a.paid} /></td>
-                  <td style={{ padding: `${spacing.sm}px ${spacing.md}px`, ...type.label, fontSize: 11, color: colors.muted }}>{a.source}</td>
-                  <td style={{ padding: `${spacing.sm}px ${spacing.md}px`, ...type.label, fontSize: 11, color: colors.muted }}>{a.addedAt ? new Date(a.addedAt).toLocaleDateString() : "—"}</td>
+                  <td style={{ padding: `${spacing.sm}px ${spacing.md}px` }}>
+                    <ToggleBadge active={!!a.showed} activeLabel="✓ Showed" inactiveLabel="No show" activeColor={colors.charcoal} onClick={() => toggleField(a.id, "showed")} disabled={isLocked} />
+                  </td>
+                  <td style={{ padding: `${spacing.sm}px ${spacing.md}px` }}>
+                    <ToggleBadge active={!!a.converted} activeLabel="✓ Converted" inactiveLabel="Not yet" activeColor={colors.success} onClick={() => toggleField(a.id, "converted")} disabled={isLocked} />
+                  </td>
+                  <td style={{ padding: `${spacing.sm}px ${spacing.md}px` }}>
+                    <ToggleBadge active={!!a.paid} activeLabel="✓ Paid" inactiveLabel="Unpaid" activeColor={colors.success} onClick={() => toggleField(a.id, "paid")} disabled={isLocked} />
+                  </td>
+                  <td style={{ padding: `${spacing.sm}px ${spacing.md}px`, ...type.label, fontSize: 11, color: colors.muted, whiteSpace: "nowrap" }}>{a.addedAt ? new Date(a.addedAt).toLocaleDateString() : "—"}</td>
                   <td style={{ padding: `${spacing.sm}px ${spacing.md}px`, whiteSpace: "nowrap" }}>
                     {!isLocked && (
                       <>
@@ -338,14 +336,10 @@ export default function RSVPs() {
         </div>
       )}
 
-      {/* Footer actions */}
+      {/* Footer */}
       <div style={{ display: "flex", gap: spacing.sm, flexWrap: "wrap", marginTop: spacing.lg }}>
-        <button onClick={() => { const csv = exportAttendeesCSV(attendees); downloadCSV(csv, `${activeEvent.name}-attendees.csv`); }} style={btnSecondary}>
-          Export Attendee List CSV
-        </button>
-        <button onClick={() => exportDoorListPDF(attendees, activeEvent)} style={btnSecondary}>
-          Export Door List PDF
-        </button>
+        <button onClick={() => downloadCSV(exportAttendeesCSV(attendees), `${activeEvent.name}-attendees.csv`)} style={btnSecondary}>Export Attendee List CSV</button>
+        <button onClick={() => exportDoorListPDF(attendees, activeEvent)} style={btnSecondary}>Export Door List PDF</button>
       </div>
 
       {/* Delete confirm */}

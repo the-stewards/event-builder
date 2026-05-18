@@ -47,4 +47,3 @@ Write the debrief summary paragraph.`,
   });
 }
 
-export const config = { path: "/api/generateDebrief" };

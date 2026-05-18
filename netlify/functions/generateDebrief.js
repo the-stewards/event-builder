@@ -2,7 +2,7 @@ import { validateAuth } from "./utils/validateAuth.js";
 
 export default async function handler(req, context) {
   try {
-    validateAuth(req.headers);
+    validateAuth(context);
   } catch {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
   }

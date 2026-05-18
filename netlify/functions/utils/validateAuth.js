@@ -1,9 +1,5 @@
-import jwt from "jsonwebtoken";
-
-export function validateAuth(headers) {
-  const auth = headers.authorization || headers.Authorization || "";
-  const token = auth.replace("Bearer ", "");
-  if (!token) throw new Error("Unauthorized");
-  const decoded = jwt.verify(token, process.env.JWT_SECRET);
-  return decoded;
+export function validateAuth(context) {
+  const user = context?.clientContext?.user;
+  if (!user) throw new Error("Unauthorized");
+  return user;
 }
